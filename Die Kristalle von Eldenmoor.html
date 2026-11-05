@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Die Kristalle von Eldenmoor</title>
+<style>
+:root{--fg:#1a1a1a;--pn:rgba(255,255,255,.96);--ac:#6c4cff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-t=dark]{--fg:#eee;--pn:rgba(24,26,38,.96)}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100%;height:100%}
+.ui{position:fixed;color:#fff;text-shadow:0 1px 3px #000;z-index:2}
+#hud{left:12px;top:calc(env(safe-area-inset-top,0px) + 8px);font-size:1rem;max-width:65%}
+#gear{right:12px;top:calc(env(safe-area-inset-top,0px) + 8px);font-size:1.6rem;background:rgba(0,0,0,.4);border:0;border-radius:12px;width:48px;height:48px;color:#fff}
+#hint{left:50%;bottom:34%;transform:translateX(-50%);background:rgba(0,0,0,.5);padding:6px 12px;border-radius:10px}
+#dlg{left:3%;right:3%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:var(--pn);color:var(--fg);text-shadow:none;padding:14px;border-radius:14px;z-index:5;font-size:1.05rem}
+#dlg b{color:var(--ac)}
+#joy{left:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 24px);width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5)}
+#knob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.7)}
+.b{right:20px;width:72px;height:72px;border-radius:50%;border:0;background:rgba(108,76,255,.8);color:#fff;font-size:1.6rem}
+#bAct{bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}#bAtk{bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
+#set{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10;display:flex;align-items:center;justify-content:center}
+#set[hidden],#dlg[hidden],#dbg[hidden]{display:none}
+#set .in{background:var(--pn);color:var(--fg);width:min(92%,420px);max-height:86%;overflow:auto;border-radius:16px;padding:16px;touch-action:pan-y}
+#set label{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px}
+#set button,#set select,#set input[type=text]{min-height:44px;font-size:1rem;border-radius:10px;border:1px solid #888;padding:0 12px;margin:3px 3px 3px 0}
+#set input[type=range]{flex:1;min-width:40%}
+pre{font-size:.75rem;white-space:pre-wrap;margin:4px 0}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="hud" class="ui"></div>
+<button id="gear" class="ui" aria-label="Einstellungen">⚙️</button>
+<div id="hint" class="ui" hidden></div>
+<div id="joy" class="ui"><div id="knob"></div></div>
+<button id="bAct" class="b ui">E</button><button id="bAtk" class="b ui">⚔️</button>
+<div id="dlg" class="ui" hidden></div>
+<div id="set" hidden><div class="in">
+<h3 data-de="Einstellungen" data-en="Settings"></h3>
+<label><span data-de="Dark-Mode" data-en="Dark mode"></span><input type="checkbox" id="dark"></label>
+<label><span data-de="Sprache" data-en="Language"></span><select id="lang"><option value="de">Deutsch</option><option value="en">English</option></select></label>
+<label><span data-de="Schriftgröße" data-en="Font size"></span><input type="range" id="font" min="0.8" max="1.4" step="0.1"></label>
+<label><span>FOV</span><input type="range" id="fov" min="50" max="120"></label>
+<label><span data-de="Empfindlichkeit" data-en="Sensitivity"></span><input type="range" id="sens" min="0.1" max="3" step="0.1"></label>
+<label><span data-de="Grafikqualität" data-en="Graphics"></span><select id="q"><option value="0.5">Low</option><option value="0.75">Mid</option><option value="1">High</option></select></label>
+<label><span data-de="Y-Achse invertieren" data-en="Invert Y axis"></span><input type="checkbox" id="invY"></label>
+<label><span data-de="Code eingeben" data-en="Enter code"></span><span><input type="text" id="code" size="10"><button id="okc">OK</button></span></label>
+<div id="cm"></div>
+<div id="dbg" hidden>
+<button id="dg" data-de="Unverwundbar" data-en="Invincible"></button><button id="df" data-de="Schneller" data-en="Faster"></button><button id="dfl" data-de="Fliegen an/aus" data-en="Fly on/off"></button><button id="dw">Wireframe</button><button id="dn" data-de="Neustart" data-en="Restart"></button><button id="doff" data-de="Debug-Modus aus" data-en="Debug off"></button>
+<pre id="info"></pre><pre id="log"></pre></div>
+<button id="rst" data-de="Zurücksetzen" data-en="Reset"></button><button id="cls" data-de="Schließen" data-en="Close"></button>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=i=>document.getElementById(i);
+const S={dark:matchMedia('(prefers-color-scheme: dark)').matches,lang:'de',font:1,fov:70,sens:1,q:.75,invY:false,debug:false};
+const DEF={...S};const D={god:0,fast:0,fly:0,wire:0};
+const T=(a,b)=>S.lang=='de'?a:b;
+let paused=false,dlg=null,hp=5,state=0,got=0,yaw=0,pitch=.45,logs=[];
+const log=m=>{logs.push(m);logs=logs.slice(-5)};
+/* Story */
+const L={
+intro:[["Älteste Mara","Willkommen, Reisende! Eldenmoor stirbt, seit die drei Lebenskristalle verschwunden sind.","Elder Mara","Welcome, traveler! Eldenmoor is dying since the three Life Crystals vanished."],
+["Älteste Mara","Sie liegen im Dunkelwald im Norden. Schleime bewachen sie. Nimm das Schwert und sei mutig.","Elder Mara","They lie in the Darkwood to the north, guarded by slimes. Take your sword and be brave."]],
+rem:[["Älteste Mara","Drei Kristalle im Norden, Reisende. Das Dorf zählt auf dich.","Elder Mara","Three crystals in the north, traveler. The village counts on you."]],
+back:[["Älteste Mara","Du hast es geschafft! Die Kristalle leuchten wieder...","Elder Mara","You did it! The crystals glow again..."],
+["Älteste Mara","Das Land blüht auf. Doch die Schleime waren nur Wächter. Wer hat sie gerufen? Das ist eine Geschichte für ein anderes Mal.","Elder Mara","The land blooms again. But the slimes were only guards. Who called them? A story for another time."]],
+end:[["Älteste Mara","Danke, Heldin von Eldenmoor!","Elder Mara","Thank you, Hero of Eldenmoor!"]],
+shop:[["Händler Tom","Schleim-Schleim, das gibt Gelee! Aber leider keine Kunden. Viel Glück im Norden!","Merchant Tom","Slime jelly, anyone? No customers though. Good luck in the north!"]]};
+const say=(k,cb)=>{dlg={l:L[k],i:0,cb};showD()};
+function showD(){const l=dlg.l[dlg.i];$('dlg').hidden=false;$('dlg').innerHTML='<b>'+(S.lang=='de'?l[0]:l[2])+'</b><br>'+(S.lang=='de'?l[1]:l[3])+' ▶'}
+function nextD(){if(!dlg)return;dlg.i++;if(dlg.i>=dlg.l.length){const c=dlg.cb;dlg=null;$('dlg').hidden=true;c&&c()}else showD()}
+$('dlg').onclick=nextD;
+/* Welt */
+const R=new THREE.WebGLRenderer({canvas:$('c')});
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(70,1,.1,300);
+scene.add(new THREE.HemisphereLight(0xffffff,0x446644,.9));
+const sun=new THREE.DirectionalLight(0xffffff,.6);sun.position.set(30,50,20);scene.add(sun);
+const mats=[],M=(c,e)=>{const m=new THREE.MeshLambertMaterial({color:c,emissive:e||0});mats.push(m);return m};
+const add=(g,m,x,y,z,p)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);(p||scene).add(o);return o};
+const obs=[];let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+add(new THREE.PlaneGeometry(160,160).rotateX(-Math.PI/2),M(0x4c9a4c),0,0,0);
+const hb=new THREE.BoxGeometry(6,4,6),hr=new THREE.ConeGeometry(5,3,4).rotateY(Math.PI/4),hm=M(0xc9a37a),rm=M(0x9a3b3b);
+[[-12,4],[12,3],[-14,-10],[14,-12]].forEach(([x,z])=>{add(hb,hm,x,2,z);add(hr,rm,x,5.5,z);obs.push({x,z,r:4.5})});
+const CR=[[-26,-32],[30,-38],[0,-58]];
+const tt=new THREE.CylinderGeometry(.3,.4,2),tc=new THREE.ConeGeometry(1.6,4.5,6),tm=M(0x6b4a2b),cm=M(0x1f6b3a);
+for(let i=0;i<110;i++){const x=(rnd()-.5)*140,z=-20-rnd()*55;if(CR.some(c=>Math.hypot(c[0]-x,c[1]-z)<6))continue;add(tt,tm,x,1,z);add(tc,cm,x,4,z);obs.push({x,z,r:1})}
+function person(x,z,col){const g=new THREE.Group();add(new THREE.CylinderGeometry(.5,.55,1.2),M(col),0,.9,0,g);add(new THREE.SphereGeometry(.4),M(0xf0c8a0),0,1.8,0,g);g.position.set(x,0,z);scene.add(g);return g}
+const player=person(0,8,0x2a6bd9);add(new THREE.BoxGeometry(.1,.1,1.2),M(0xdddddd),.7,1.2,.6,player);
+const npcs=[{g:person(0,-4,0x8a2be2),k:'elder'},{g:person(8,10,0xd98a2a),k:'shop'}];
+const crys=CR.map(([x,z])=>({m:add(new THREE.OctahedronGeometry(.8),M(0x66ddff,0x2288ff),x,1.6,z),ok:true}));
+let slimes=[];const sg=new THREE.SphereGeometry(.8,10,8),sm=M(0x55dd55,0x113311);
+function spawnS(){slimes.forEach(s=>scene.remove(s.m));slimes=[];CR.forEach(([cx,cz],i)=>{for(let k=0;k<2+i*2;k++){const m=add(sg,sm,cx+(rnd()-.5)*14,.8,cz+(rnd()-.5)*14);slimes.push({m,hp:2,cd:0})}})}
+spawnS();
+/* Eingabe */
+const keys={};let jx=0,jy=0;
+addEventListener('keydown',e=>{keys[e.code]=1;if(e.code=='KeyE'||e.code=='Enter')act();if(e.code=='Space')atk()});
+addEventListener('keyup',e=>keys[e.code]=0);
+let lid=null,lx=0,ly=0;const cv=$('c');
+cv.onpointerdown=e=>{lid=e.pointerId;lx=e.clientX;ly=e.clientY};
+cv.onpointermove=e=>{if(e.pointerId!=lid||paused)return;yaw-=(e.clientX-lx)*.005*S.sens;pitch=Math.max(.05,Math.min(1.2,pitch+(e.clientY-ly)*.005*S.sens*(S.invY?-1:1)));lx=e.clientX;ly=e.clientY};
+cv.onpointerup=cv.onpointercancel=()=>lid=null;
+let jid=null;const joy=$('joy');
+const jm=e=>{const r=joy.getBoundingClientRect();let dx=e.clientX-r.left-60,dy=e.clientY-r.top-60;const d=Math.hypot(dx,dy),k=d>50?50/d:1;dx*=k;dy*=k;jx=dx/50;jy=-dy/50;$('knob').style.transform=`translate(${dx}px,${dy}px)`};
+joy.onpointerdown=e=>{jid=e.pointerId;joy.setPointerCapture(jid);jm(e)};
+joy.onpointermove=e=>{if(e.pointerId==jid)jm(e)};
+joy.onpointerup=joy.onpointercancel=()=>{jid=null;jx=jy=0;$('knob').style.transform=''};
+$('bAct').onpointerdown=act;$('bAtk').onpointerdown=atk;
+function near(){return npcs.find(n=>n.g.position.distanceTo(player.position)<4)}
+function act(){if(paused)return;if(dlg)return nextD();const n=near();if(!n)return;
+if(n.k=='shop')return say('shop');
+if(state==0)say('intro',()=>{state=1;log('Quest 1')});
+else if(state==1)say('rem');
+else if(state==2)say('back',()=>{state=3;log('Ende')});
+else say('end')}
+let cdA=0;
+function atk(){if(paused||dlg||cdA>0)return;cdA=.4;slimes.forEach(s=>{if(s.m.position.distanceTo(player.position)<3.2){s.hp--;log('Treffer')}});slimes=slimes.filter(s=>{if(s.hp<=0){scene.remove(s.m);return false}return true})}
+/* Einstellungen */
+function apply(){document.documentElement.dataset.t=S.dark?'dark':'light';const bg=S.dark?0x0b0d18:0x87ceeb;scene.background=new THREE.Color(bg);scene.fog=new THREE.Fog(bg,40,120);
+cam.fov=S.fov;cam.updateProjectionMatrix();R.setPixelRatio(S.q*Math.min(devicePixelRatio,2));R.setSize(innerWidth,innerHeight);
+document.documentElement.style.fontSize=S.font*16+'px';
+document.querySelectorAll('[data-de]').forEach(e=>e.textContent=e.dataset[S.lang]);
+$('dbg').hidden=!S.debug;mats.forEach(m=>m.wireframe=!!D.wire);
+$('dark').checked=S.dark;$('lang').value=S.lang;$('font').value=S.font;$('fov').value=S.fov;$('sens').value=S.sens;$('q').value=S.q;$('invY').checked=S.invY;
+if(dlg)showD()}
+const bind=(id,k,f)=>$(id).oninput=()=>{S[k]=f($(id));apply()};
+bind('dark','dark',e=>e.checked);bind('lang','lang',e=>e.value);bind('font','font',e=>+e.value);bind('fov','fov',e=>+e.value);bind('sens','sens',e=>+e.value);bind('q','q',e=>+e.value);bind('invY','invY',e=>e.checked);
+$('gear').onclick=()=>{$('set').hidden=false;paused=true};
+$('cls').onclick=()=>{$('set').hidden=true;paused=false};
+$('okc').onclick=()=>{if($('code').value=='IchKaka1234'){S.debug=true;$('cm').textContent=T('Debug-Modus aktiviert','Debug mode activated')}else $('cm').textContent=T('Falscher Code','Wrong code');apply()};
+$('doff').onclick=()=>{S.debug=false;$('cm').textContent='';apply()};
+$('rst').onclick=()=>{Object.assign(S,DEF);Object.assign(D,{god:0,fast:0,fly:0,wire:0});$('cm').textContent='';apply()};
+$('dg').onclick=()=>D.god^=1;$('df').onclick=()=>D.fast^=1;$('dfl').onclick=()=>D.fly^=1;$('dw').onclick=()=>{D.wire^=1;apply()};
+$('dn').onclick=()=>{state=0;got=0;hp=5;player.position.set(0,0,8);crys.forEach(c=>{c.ok=true;c.m.visible=true});spawnS();log('Neustart')};
+addEventListener('resize',apply);apply();
+/* Loop */
+let last=performance.now(),fr=0,fps=0,ft=0,hudT='',hintT=null;
+function update(dt,t){
+let mx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+jx,my=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)+jy;
+const l=Math.hypot(mx,my);if(l>1){mx/=l;my/=l}
+const vx=Math.cos(yaw)*mx-Math.sin(yaw)*my,vz=-Math.sin(yaw)*mx-Math.cos(yaw)*my,sp=D.fast?14:7;
+if(l>.05&&!dlg){const p=player.position;p.x=Math.max(-75,Math.min(75,p.x+vx*sp*dt));p.z=Math.max(-75,Math.min(75,p.z+vz*sp*dt));player.rotation.y=Math.atan2(vx,vz)}
+const p=player.position;obs.forEach(o=>{const dx=p.x-o.x,dz=p.z-o.z,d=Math.hypot(dx,dz),m=o.r+.5;if(d<m&&d>0){p.x=o.x+dx/d*m;p.z=o.z+dz/d*m}});
+p.y=D.fly?6:0;cdA-=dt;
+slimes.forEach((s,i)=>{const sp2=s.m.position,d=sp2.distanceTo(p);s.cd-=dt;
+if(d<12&&d>1.2&&!dlg){sp2.x+=(p.x-sp2.x)/d*2.5*dt;sp2.z+=(p.z-sp2.z)/d*2.5*dt}
+if(d<1.6&&s.cd<=0&&!D.god){hp--;s.cd=1.2;log('Au!');if(hp<=0){hp=5;p.set(0,0,8);log(T('Besiegt - zurück im Dorf','Defeated - back in the village'))}}
+sp2.y=.8+Math.abs(Math.sin(t*6+i))*.3;s.m.scale.setScalar(.6+.4*s.hp/2)});
+crys.forEach(c=>{if(!c.ok)return;c.m.rotation.y+=dt*2;if(c.m.position.distanceTo(p)<2.5){c.ok=false;c.m.visible=false;got++;log('Kristall '+got);if(got>=3&&state==1)state=2}});
+const n=near(),h=n?T('E / Tippe E: Sprechen','E / tap E: talk'):null;
+if(h!==hintT){hintT=h;$('hint').hidden=!h||!!dlg;$('hint').textContent=h||''}
+if(dlg)$('hint').hidden=true;
+if(S.debug)$('info').textContent=`FPS ${fps}\npos ${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}\ncam ${cam.position.x.toFixed(1)}, ${cam.position.y.toFixed(1)}, ${cam.position.z.toFixed(1)}\nHP ${hp} state ${state} crystals ${got}\n`,$('log').textContent=logs.join('\n')}
+function loop(t){requestAnimationFrame(loop);const dt=Math.min((t-last)/1000,.05);last=t;fr++;ft+=dt;if(ft>=1){fps=fr;fr=0;ft=0}
+if(!paused)update(dt,t/1000);
+const p=player.position,cp=Math.cos(pitch);cam.position.set(p.x+Math.sin(yaw)*cp*8,p.y+1.5+Math.sin(pitch)*8,p.z+Math.cos(yaw)*cp*8);cam.lookAt(p.x,p.y+1.5,p.z);
+const q=[T('Sprich mit der Ältesten Mara','Talk to Elder Mara'),T(`Finde die Kristalle im Norden (${got}/3)`,`Find the crystals in the north (${got}/3)`),T('Bringe die Kristalle zu Mara','Bring the crystals to Mara'),T('Ende - danke fürs Spielen!','The End - thanks for playing!')][state];
+const ht='❤️'.repeat(Math.max(hp,0))+'<br>'+q;if(ht!==hudT){hudT=ht;$('hud').innerHTML=ht}
+R.render(scene,cam)}
+requestAnimationFrame(loop);
+</script></body></html>

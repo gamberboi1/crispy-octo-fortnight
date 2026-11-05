@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Snake</title>
+<style>
+  body {
+    background: #1e1e2e;
+    color: #f0f0f0;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  h1 { margin-bottom: 5px; }
+  #score { margin-bottom: 10px; font-size: 18px; }
+  canvas {
+    background: #11111b;
+    border: 4px solid #89b4fa;
+    border-radius: 8px;
+  }
+  #info {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #a6adc8;
+  }
+  #overlay {
+    position: absolute;
+    text-align: center;
+    color: white;
+    font-size: 24px;
+    display: none;
+  }
+  button {
+    margin-top: 10px;
+    padding: 8px 16px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    background: #89b4fa;
+    cursor: pointer;
+  }
+  #difficulty {
+    margin-bottom: 10px;
+    display: flex;
+    gap: 8px;
+  }
+  .diff-btn {
+    margin-top: 0;
+    padding: 6px 14px;
+    font-size: 14px;
+    background: #313244;
+    color: #cdd6f4;
+    opacity: 0.8;
+  }
+  .diff-btn.active {
+    background: #89b4fa;
+    color: #11111b;
+    opacity: 1;
+    font-weight: bold;
+  }
+  #speedControl {
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 260px;
+  }
+  #speedControl label {
+    font-size: 13px;
+    color: #a6adc8;
+    margin-bottom: 4px;
+  }
+  #speedControl input[type="range"] {
+    width: 100%;
+    accent-color: #89b4fa;
+  }
+  #speedLabels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 11px;
+    color: #6c7086;
+  }
+</style>
+</head>
+<body>
+  <h1>🐍 Snake</h1>
+  <div id="difficulty">
+    <button class="diff-btn" data-level="easy" onclick="setDifficulty('easy')">Leicht</button>
+    <button class="diff-btn" data-level="medium" onclick="setDifficulty('medium')">Mittel</button>
+    <button class="diff-btn" data-level="hard" onclick="setDifficulty('hard')">Schwer</button>
+  </div>
+  <div id="speedControl">
+    <label for="speedSlider">Geschwindigkeit: <span id="speedValue"></span></label>
+    <input type="range" id="speedSlider" min="40" max="250" step="5" oninput="setSpeedFromSlider(this.value)">
+    <div id="speedLabels"><span>Schnell</span><span>Langsam</span></div>
+  </div>
+  <div id="score">Punkte: 0</div>
+  <canvas id="game" width="400" height="400"></canvas>
+  <div id="info">Steuerung: Pfeiltasten oder WASD</div>
+  <div id="overlay">
+    <p id="gameOverText"></p>
+    <button onclick="restart()">Neustart</button>
+  </div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const gridSize = 20;
+const tileCount = canvas.width / gridSize;
+
+const difficulties = {
+  easy:   { start: 200, step: 2, min: 120 },
+  medium: { start: 120, step: 3, min: 60 },
+  hard:   { start: 90,  step: 4, min: 40 }
+};
+let currentDifficulty = 'medium';
+let customStart = difficulties.medium.start;
+
+let snake, dx, dy, food, score, gameOver, speed, loop;
+
+function setDifficulty(level) {
+  currentDifficulty = level;
+  customStart = difficulties[level].start;
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.level === level);
+  });
+  const slider = document.getElementById('speedSlider');
+  slider.value = customStart;
+  updateSpeedLabel();
+  init();
+}
+
+function setSpeedFromSlider(value) {
+  customStart = parseInt(value);
+  updateSpeedLabel();
+  init();
+}
+
+function updateSpeedLabel() {
+  document.getElementById('speedValue').textContent = customStart + ' ms';
+}
+
+function init() {
+  const center = Math.floor(tileCount / 2);
+  snake = [{x: center, y: center}];
+  dx = 0;
+  dy = 0;
+  score = 0;
+  gameOver = false;
+  speed = customStart;
+  placeFood();
+  document.getElementById('score').textContent = 'Punkte: 0';
+  document.getElementById('overlay').style.display = 'none';
+  if (loop) clearInterval(loop);
+  loop = setInterval(tick, speed);
+}
+
+function placeFood() {
+  food = {
+    x: Math.floor(Math.random() * tileCount),
+    y: Math.floor(Math.random() * tileCount)
+  };
+  for (const part of snake) {
+    if (part.x === food.x && part.y === food.y) {
+      placeFood();
+      break;
+    }
+  }
+}
+
+function tick() {
+  if (gameOver) return;
+  if (dx === 0 && dy === 0) return; // noch keine Richtung gewählt
+
+  const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+  // Wand-Kollision
+  if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+    return endGame();
+  }
+  // Selbst-Kollision
+  for (const part of snake) {
+    if (part.x === head.x && part.y === head.y) {
+      return endGame();
+    }
+  }
+
+  snake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    document.getElementById('score').textContent = 'Punkte: ' + score;
+    placeFood();
+    const diff = difficulties[currentDifficulty];
+    const minSpeed = Math.min(diff.min, Math.max(30, customStart - 80));
+    if (speed > minSpeed) {
+      speed -= diff.step;
+      clearInterval(loop);
+      loop = setInterval(tick, speed);
+    }
+  } else {
+    snake.pop();
+  }
+
+  draw();
+}
+
+function draw() {
+  ctx.fillStyle = '#11111b';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#f38ba8';
+  ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+
+  ctx.fillStyle = '#a6e3a1';
+  snake.forEach((part, i) => {
+    ctx.fillStyle = i === 0 ? '#89b4fa' : '#a6e3a1';
+    ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+  });
+}
+
+function endGame() {
+  gameOver = true;
+  clearInterval(loop);
+  document.getElementById('gameOverText').textContent =
+    'Game Over! Punkte: ' + score;
+  document.getElementById('overlay').style.display = 'block';
+}
+
+function restart() {
+  init();
+}
+
+document.addEventListener('keydown', e => {
+  switch (e.key) {
+    case 'ArrowUp': case 'w': case 'W':
+      if (dy !== 1) { dx = 0; dy = -1; }
+      break;
+    case 'ArrowDown': case 's': case 'S':
+      if (dy !== -1) { dx = 0; dy = 1; }
+      break;
+    case 'ArrowLeft': case 'a': case 'A':
+      if (dx !== 1) { dx = -1; dy = 0; }
+      break;
+    case 'ArrowRight': case 'd': case 'D':
+      if (dx !== -1) { dx = 1; dy = 0; }
+      break;
+  }
+});
+
+document.querySelector('.diff-btn[data-level="medium"]').classList.add('active');
+document.getElementById('speedSlider').value = customStart;
+updateSpeedLabel();
+init();
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bibliothek von Babel</title>
+<style>
+:root{--bg:#f6f3ec;--card:#fff;--tx:#1d1b16;--mu:#6b665a;--ac:#8a5a14;--bd:#d8d2c2;--fs:1rem;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15130f;--card:#201d17;--tx:#eee8da;--mu:#a39c8a;--ac:#e0a64a;--bd:#3a352a}}
+:root[data-theme="dark"]{--bg:#15130f;--card:#201d17;--tx:#eee8da;--mu:#a39c8a;--ac:#e0a64a;--bd:#3a352a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:var(--fs)/1.45 Georgia,"Times New Roman",serif}
+main{max-width:760px;margin:0 auto;padding:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-size:1.35em;margin:6px 0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0}
+label{display:block;font-size:.85em;color:var(--mu);margin:6px 0 3px}
+select,input,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;min-height:44px;max-width:100%}
+button{cursor:pointer;background:var(--ac);color:var(--bg);border:0;font-weight:600}
+button.g{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.row>*{flex:1 1 90px}
+.row>button{flex:0 0 auto}
+#out{font:.85em/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;margin:0}
+#cv{width:100%;max-width:512px;image-rendering:pixelated;display:block;margin:0 auto;border:1px solid var(--bd)}
+.addr{font:.8em ui-monospace,Menlo,monospace;word-break:break-all;color:var(--mu)}
+.info{font-size:.85em;color:var(--mu)}
+#dbg{font:.75em ui-monospace,monospace;white-space:pre-wrap;color:var(--ac)}
+#ov{position:fixed;inset:0;background:#000a;display:none;align-items:flex-start;justify-content:center;overflow:auto;z-index:20;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 12px}
+#ov.on{display:flex}
+#ov .card{width:100%;max-width:440px}
+</style>
+</head>
+<body>
+<main>
+<header><h1 data-i="title"></h1><button class="g" id="gear" aria-label="Settings">⚙️</button></header>
+
+<div class="card">
+<label data-i="ver"></label>
+<select id="ver"></select>
+<div id="imgopt">
+<div class="row">
+<div><label data-i="mode"></label><select id="mode"></select></div>
+<div><label data-i="pre"></label><select id="pre"><option>8</option><option>16</option><option selected>32</option><option>64</option><option>128</option></select></div>
+</div>
+<div class="row">
+<div><label data-i="w"></label><input id="w" type="number" min="1" max="128" value="32"></div>
+<div><label data-i="h"></label><input id="h" type="number" min="1" max="128" value="32"></div>
+<button id="apply" data-i="apply"></button>
+</div>
+</div>
+<p class="info" id="info"></p>
+</div>
+
+<div class="card">
+<pre id="out"></pre>
+<canvas id="cv"></canvas>
+</div>
+
+<div class="card">
+<label data-i="addr"></label>
+<div class="addr" id="addr"></div>
+<div class="row" style="margin-top:8px">
+<button class="g" id="prev">◀</button><button class="g" id="next">▶</button>
+<button id="rnd" data-i="rnd"></button><button class="g" id="cp" data-i="cp"></button>
+</div>
+<label data-i="jump"></label>
+<div class="row"><input id="jin" placeholder="0123abcd…"><button id="jgo" data-i="go"></button></div>
+<div id="sbox">
+<label data-i="sq"></label>
+<div class="row"><input id="q" maxlength="1000"><button id="sgo" data-i="find"></button></div>
+</div>
+</div>
+<div class="card" id="dbgc" style="display:none"><div id="dbg"></div></div>
+</main>
+
+<div id="ov"><div class="card">
+<h1 data-i="set"></h1>
+<label><input type="checkbox" id="dk"> <span data-i="dark"></span></label>
+<label data-i="lang"></label>
+<select id="lg"><option value="de">Deutsch</option><option value="en">English</option></select>
+<label data-i="fs"></label>
+<input type="range" id="fsr" min="1" max="3" step="1" style="width:100%">
+<label data-i="code"></label>
+<div class="row"><input id="cd" autocomplete="off"><button id="cok" data-i="ok"></button></div>
+<p class="info" id="cmsg"></p>
+<button class="g" id="doff" style="display:none" data-i="doff"></button>
+<div class="row" style="margin-top:10px"><button class="g" id="rst" data-i="rst"></button><button id="cls" data-i="cls"></button></div>
+</div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const D={de:{title:"Bibliothek von Babel",ver:"Version",mode:"Farben",pre:"Auflösung (Vorgabe)",w:"Breite",h:"Höhe",apply:"Übernehmen",addr:"Adresse (hex)",rnd:"Zufall",cp:"Kopieren",jump:"Zu Adresse springen",go:"Los",sq:"Text suchen (findet die Seite mit genau diesem Text)",find:"Finden",set:"Einstellungen",dark:"Dunkler Modus",lang:"Sprache",fs:"Schriftgröße",code:"Code eingeben",ok:"Bestätigen",doff:"Debug-Modus aus",rst:"Zurücksetzen",cls:"Schließen",dbgon:"Debug-Modus aktiviert",wrong:"Falscher Code",nf:"Nichts zum Suchen eingegeben.",
+v:{text_de:"Text (Deutsch)",text_en:"Text (English)",zahlen:"Zahlen",binaer:"Binär",bild:"Bild (alle Farben & Auflösung)"},
+m:["Schwarz-Weiß (1 Bit)","Graustufen (256)","16 Farben","256 Farben (RGB332)","Alle Farben (16,7 Mio.)"],
+inf:(c,n,x,p)=>`${c} Möglichkeiten pro ${p}, ${n} ${p}n pro Seite → ca. 10^${x} verschiedene Seiten. Jede davon existiert genau einmal.`,pix:"Pixel",chr:"Zeichen"},
+en:{title:"Library of Babel",ver:"Version",mode:"Colors",pre:"Resolution (preset)",w:"Width",h:"Height",apply:"Apply",addr:"Address (hex)",rnd:"Random",cp:"Copy",jump:"Jump to address",go:"Go",sq:"Search text (finds the page with exactly this text)",find:"Find",set:"Settings",dark:"Dark mode",lang:"Language",fs:"Font size",code:"Enter code",ok:"Confirm",doff:"Debug mode off",rst:"Reset",cls:"Close",dbgon:"Debug mode activated",wrong:"Wrong code",nf:"Nothing to search for.",
+v:{text_de:"Text (German)",text_en:"Text (English)",zahlen:"Numbers",binaer:"Binary",bild:"Image (all colors & resolution)"},
+m:["Black & white (1 bit)","Grayscale (256)","16 colors","256 colors (RGB332)","All colors (16.7 million)"],
+inf:(c,n,x,p)=>`${c} options per ${p}, ${n} ${p}s per page → about 10^${x} different pages. Each one exists exactly once.`,pix:"pixel",chr:"character"}};
+const V={text_de:{a:" abcdefghijklmnopqrstuvwxyzäöüß,.",n:1000},text_en:{a:" abcdefghijklmnopqrstuvwxyz,.",n:1000},zahlen:{a:"0123456789",n:1000},binaer:{a:"01",n:1024},bild:{}};
+const MC=[2,256,16,256,16777216];
+const dflt=()=>({dark:matchMedia("(prefers-color-scheme: dark)").matches,lang:"de",fs:2,debug:false});
+let S=dflt(),ver="text_de",addr=0n,W=32,H=32,logs=[],ms=0,cache={};
+const t=k=>D[S.lang][k];
+function log(m){logs.push(m);if(logs.length>8)logs.shift();dbg()}
+
+function gcd(a,b){while(b){[a,b]=[b,a%b]}return a}
+function inv(a,m){let r0=m,r1=a%m,t0=0n,t1=1n;while(r1){const q=r0/r1;[r0,r1]=[r1,r0-q*r1];[t0,t1]=[t1,t0-q*t1]}return((t0%m)+m)%m}
+function cx(){
+  let C,N;
+  if(ver==="bild"){C=MC[+$("#mode").value];N=W*H}else{C=V[ver].a.length;N=V[ver].n}
+  const key=C+":"+N;if(cache[key])return cache[key];
+  const Cb=BigInt(C),M=Cb**BigInt(N);
+  let A=M*618033988749895n/1000000000000000n|1n;
+  while(gcd(A,Cb)!==1n)A+=2n;
+  const B=M*414213562373095n/1000000000000000n;
+  const k=(C&(C-1))===0?Math.log2(C):0;
+  return cache[key]={C,N,M,A,B,k,iv:null};
+}
+function digits(x,c){
+  const d=new Uint32Array(c.N);
+  if(c.k){const s=x.toString(2).padStart(c.N*c.k,"0");for(let i=0;i<c.N;i++)d[i]=parseInt(s.substr(i*c.k,c.k),2)}
+  else{const b=BigInt(c.C);for(let i=c.N-1;i>=0;i--){d[i]=Number(x%b);x/=b}}
+  return d;
+}
+function undigits(d,c){
+  if(c.k)return BigInt("0b"+Array.from(d,v=>v.toString(2).padStart(c.k,"0")).join(""));
+  const b=BigInt(c.C);let x=0n;for(const v of d)x=x*b+BigInt(v);return x;
+}
+function rand(M){
+  const bits=M.toString(2).length+64,n=Math.ceil(bits/8);let h="";
+  for(let i=0;i<n;i+=65536){const u=new Uint8Array(Math.min(65536,n-i));crypto.getRandomValues(u);h+=Array.from(u,b=>b.toString(16).padStart(2,"0")).join("")}
+  return BigInt("0x"+h)%M;
+}
+function color(m,v){
+  switch(m){
+    case 0:return v?[255,255,255]:[0,0,0];
+    case 1:return[v,v,v];
+    case 2:{const i=(v>>3&1)*85;return[(v>>2&1)*170+i,(v>>1&1)*170+i,(v&1)*170+i]}
+    case 3:return[Math.round((v>>5)*255/7),Math.round(((v>>2)&7)*255/7),(v&3)*85];
+    default:return[v>>16,(v>>8)&255,v&255];
+  }
+}
+function render(){
+  const t0=performance.now(),c=cx();
+  if(addr>=c.M)addr%=c.M;
+  const d=digits((addr*c.A+c.B)%c.M,c);
+  if(ver==="bild"){
+    const cv=$("#cv"),g=cv.getContext("2d"),m=+$("#mode").value;
+    cv.width=W;cv.height=H;const im=g.createImageData(W,H);
+    for(let i=0;i<c.N;i++){const p=color(m,d[i]);im.data[i*4]=p[0];im.data[i*4+1]=p[1];im.data[i*4+2]=p[2];im.data[i*4+3]=255}
+    g.putImageData(im,0,0);
+  }else{
+    const a=V[ver].a;$("#out").textContent=Array.from(d,i=>a[i]).join("");
+  }
+  const h=addr.toString(16);
+  $("#addr").textContent=h.length>72?h.slice(0,32)+" … "+h.slice(-32)+"  ("+h.length+" hex)":h;
+  const x=Math.round(c.N*Math.log10(c.C)),p=ver==="bild"?t("pix"):t("chr");
+  $("#info").textContent=t("inf")(c.C.toLocaleString(),c.N,x.toLocaleString(),p);
+  ms=performance.now()-t0;dbg();
+}
+function dbg(){
+  $("#dbgc").style.display=S.debug?"block":"none";
+  if(!S.debug)return;
+  const c=cx();
+  $("#dbg").textContent="Version: "+ver+"\nC="+c.C+"  N="+c.N+"\nM ≈ "+c.M.toString(2).length+" bit\nAdresse: "+addr.toString(16).length+" hex\nRender: "+ms.toFixed(1)+" ms\n— Log —\n"+logs.join("\n");
+}
+function go(a){const c=cx();addr=((a%c.M)+c.M)%c.M;render()}
+function show(){
+  const img=ver==="bild";
+  $("#imgopt").style.display=img?"block":"none";
+  $("#cv").style.display=img?"block":"none";
+  $("#out").style.display=img?"none":"block";
+  $("#sbox").style.display=img?"none":"block";
+}
+function find(){
+  const c=cx(),a=V[ver].a,q=$("#q").value.toLowerCase(),d=[];
+  for(const ch of q){const i=a.indexOf(ch);if(i>=0&&d.length<c.N)d.push(i)}
+  if(!d.length){log(t("nf"));return}
+  while(d.length<c.N)d.push(0);
+  if(!c.iv)c.iv=inv(c.A,c.M);
+  const x=undigits(d,c);
+  go((((x-c.B)%c.M)+c.M)%c.M*c.iv);
+  log("search ok ("+q.length+")");
+}
+function lang(){
+  document.documentElement.lang=S.lang;
+  document.querySelectorAll("[data-i]").forEach(e=>e.textContent=t(e.dataset.i));
+  const vs=$("#ver"),cur=vs.value||ver;vs.innerHTML="";
+  for(const k in V){const o=document.createElement("option");o.value=k;o.textContent=D[S.lang].v[k];vs.appendChild(o)}
+  vs.value=cur;
+  const ms_=$("#mode"),mv=ms_.value||"4";ms_.innerHTML="";
+  D[S.lang].m.forEach((n,i)=>{const o=document.createElement("option");o.value=i;o.textContent=n;ms_.appendChild(o)});
+  ms_.value=mv;
+}
+function theme(){
+  document.documentElement.dataset.theme=S.dark?"dark":"light";
+  document.documentElement.style.setProperty("--fs",[".85rem","1rem","1.2rem"][S.fs-1]+"");
+  $("#dk").checked=S.dark;$("#lg").value=S.lang;$("#fsr").value=S.fs;
+  $("#doff").style.display=S.debug?"inline-block":"none";
+}
+function resApply(){
+  W=Math.max(1,Math.min(128,+$("#w").value||32));H=Math.max(1,Math.min(128,+$("#h").value||32));
+  $("#w").value=W;$("#h").value=H;go(rand(cx().M));
+}
+
+$("#ver").onchange=e=>{ver=e.target.value;show();go(rand(cx().M))};
+$("#mode").onchange=()=>go(rand(cx().M));
+$("#pre").onchange=e=>{$("#w").value=$("#h").value=e.target.value;resApply()};
+$("#apply").onclick=resApply;
+$("#prev").onclick=()=>go(addr-1n);
+$("#next").onclick=()=>go(addr+1n);
+$("#rnd").onclick=()=>go(rand(cx().M));
+$("#cp").onclick=async()=>{try{await navigator.clipboard.writeText(addr.toString(16));log("copied")}catch(e){log("copy failed")}};
+$("#jgo").onclick=()=>{const s=$("#jin").value.trim().replace(/^0x/i,"");if(/^[0-9a-f]+$/i.test(s))go(BigInt("0x"+s));else log("bad address")};
+$("#sgo").onclick=find;
+$("#q").onkeydown=e=>{if(e.key==="Enter")find()};
+$("#gear").onclick=()=>$("#ov").classList.add("on");
+$("#cls").onclick=()=>$("#ov").classList.remove("on");
+$("#dk").onchange=e=>{S.dark=e.target.checked;theme()};
+$("#lg").onchange=e=>{S.lang=e.target.value;lang();theme();render()};
+$("#fsr").oninput=e=>{S.fs=+e.target.value;theme()};
+$("#cok").onclick=()=>{
+  if($("#cd").value==="IchKaka1234"){S.debug=true;$("#cmsg").textContent=t("dbgon");theme();dbg()}
+  else $("#cmsg").textContent=t("wrong");
+  $("#cd").value="";
+};
+$("#doff").onclick=()=>{S.debug=false;$("#cmsg").textContent="";theme();dbg()};
+$("#rst").onclick=()=>{S=dflt();$("#cmsg").textContent="";lang();theme();render()};
+
+lang();theme();show();$("#mode").value="4";go(rand(cx().M));
+</script>
+</body>
+</html>

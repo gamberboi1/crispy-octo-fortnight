@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gambling Simulator</title>
+<style>
+:root{--bg:#0e2a26;--panel:#153a34;--line:#2a5a51;--ivory:#f3ead7;--gold:#e3b448;--red:#c8412f;--black:#161616;--green:#2f8f5b;--mute:#9db8b0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ivory);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:1.5rem;margin:0 0 2px}
+.sub{color:var(--mute);font-size:.85rem;margin:0 0 14px}
+.bank{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:12px}
+.bank b{font-family:Georgia,serif;font-size:1.8rem;color:var(--gold)}
+.bank small{color:var(--mute);display:block}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+.tab{flex:0 0 auto;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ivory);font-size:.95rem}
+.tab[aria-selected=true]{background:var(--gold);color:#241a00;border-color:var(--gold);font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.chips{display:flex;gap:8px;margin:0 0 14px}
+.chip{flex:1;padding:10px 0;border-radius:999px;border:2px dashed var(--line);background:transparent;color:var(--ivory);font-weight:600}
+.chip[aria-pressed=true]{background:var(--red);border:2px solid var(--ivory)}
+.reels{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+.reel{width:88px;height:96px;display:grid;place-items:center;font-size:3rem;background:var(--ivory);border-radius:12px;border:3px solid var(--gold);color:#222}
+.big{width:100%;padding:14px;border:0;border-radius:12px;background:var(--gold);color:#241a00;font-size:1.1rem;font-weight:700}
+.big:disabled,.opt:disabled{opacity:.5}
+.row{display:flex;gap:8px;margin-bottom:10px}
+.opt{flex:1;padding:14px 4px;border:0;border-radius:12px;font-weight:700;font-size:1rem;color:#fff}
+.opt.r{background:var(--red)}.opt.s{background:var(--black);border:1px solid var(--line)}.opt.g{background:var(--green)}.opt.k{background:var(--gold);color:#241a00}
+.ball{width:96px;height:96px;margin:4px auto 14px;border-radius:50%;display:grid;place-items:center;font-family:Georgia,serif;font-size:2.4rem;font-weight:700;background:var(--black);border:4px solid var(--gold)}
+.msg{min-height:3.2em;text-align:center;margin:12px 0 0;font-size:1rem}
+.win{color:var(--gold)}.lose{color:#f08a7a}
+.hint{color:var(--mute);font-size:.8rem;margin:8px 0 0;text-align:center}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;color:var(--mute);font-size:.8rem}
+.link{background:none;border:0;color:var(--mute);text-decoration:underline;font-size:.8rem}
+button:focus-visible{outline:3px solid var(--ivory);outline-offset:2px}
+.cell{flex:1 0 28%;height:60px;display:grid;place-items:center;font-size:1.8rem;background:var(--ivory);border-radius:10px;color:#222;border:0}
+.cell:disabled{color:#222;opacity:1}
+.hand{display:flex;gap:6px;min-height:46px;flex-wrap:wrap;margin-bottom:8px}
+.pc{background:var(--ivory);color:#222;border-radius:8px;padding:8px 10px;font-weight:700;font-family:Georgia,serif}
+.big+.big,.row+.big{margin-top:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Gambling Simulator</h1>
+<p class="sub">Nur Spielgeld. Es geht nie um echtes Geld.</p>
+
+<div class="bank"><div><small>Guthaben</small><b id="bal">1000</b></div><div style="text-align:right"><small>Höchststand</small><span id="peak">1000</span></div></div>
+
+<div class="tabs" role="tablist">
+<button class="tab" role="tab" data-g="slots" aria-selected="true">Slots</button>
+<button class="tab" role="tab" data-g="roul" aria-selected="false">Roulette</button>
+<button class="tab" role="tab" data-g="coin" aria-selected="false">Münzwurf</button>
+<button class="tab" role="tab" data-g="dice" aria-selected="false">Würfel</button>
+<button class="tab" role="tab" data-g="hilo" aria-selected="false">Hi-Lo</button>
+<button class="tab" role="tab" data-g="crash" aria-selected="false">Crash</button>
+<button class="tab" role="tab" data-g="scr" aria-selected="false">Rubbellos</button>
+<button class="tab" role="tab" data-g="bj" aria-selected="false">Blackjack</button>
+<button class="tab" role="tab" data-g="mines" aria-selected="false">Minen</button>
+</div>
+
+<div class="card">
+<p style="margin:0 0 6px;color:var(--mute);font-size:.85rem">Einsatz</p>
+<div class="chips" id="chips"></div>
+
+<section id="slots">
+<div class="reels"><div class="reel">🍒</div><div class="reel">🍋</div><div class="reel">🔔</div></div>
+<button class="big" id="spin">Drehen</button>
+<p class="hint">3 gleiche: 🍒 ×5 · 🍋 ×8 · 🔔 ×15 · 💎 ×30 · 7️⃣ ×75. Zwei 🍒: ×2.</p>
+</section>
+
+<section id="roul" class="hidden">
+<div class="ball" id="ball">?</div>
+<div class="row"><button class="opt r" data-b="red">Rot ×2</button><button class="opt s" data-b="black">Schwarz ×2</button><button class="opt g" data-b="green">Grün ×14</button></div>
+</section>
+
+<section id="coin" class="hidden">
+<div class="ball" id="coinface">🪙</div>
+<div class="row"><button class="opt k" data-c="Kopf">Kopf</button><button class="opt k" data-c="Zahl">Zahl</button></div>
+<p class="hint">Gewinn ×1,95</p>
+</section>
+
+<section id="dice" class="hidden"><div class="ball" id="dieface">🎲</div>
+<div class="row"><button class="opt k" data-d="lo">1–3 ×1,95</button><button class="opt k" data-d="hi">4–6 ×1,95</button><button class="opt k" data-d="six">Sechs ×5,5</button></div></section>
+
+<section id="hilo" class="hidden"><div class="ball" id="hc" style="border-radius:14px">?</div>
+<div class="row"><button class="opt k" id="hh"></button><button class="opt k" id="hl"></button></div><p class="hint">Gleiche Karte verliert. Ass ist niedrig.</p></section>
+
+<section id="crash" class="hidden"><div class="ball" id="cm" style="width:160px;border-radius:24px">1.00×</div>
+<button class="big go" id="cgo">Einsteigen</button><button class="big act hidden" id="cout">Auszahlen</button><p class="hint">Zahl dich aus, bevor es crasht.</p></section>
+
+<section id="scr" class="hidden"><div class="row" id="sg" style="flex-wrap:wrap"></div>
+<button class="big go" id="sgo">Los rubbeln</button><p class="hint">3 gleiche ×4, 4 oder mehr ×25.</p></section>
+
+<section id="bj" class="hidden"><p class="hint" style="text-align:left">Bank</p><div class="hand" id="dh"></div><p class="hint" style="text-align:left">Du</p><div class="hand" id="ph"></div>
+<button class="big go" id="bgo">Austeilen</button>
+<div class="row hidden" id="bact"><button class="big act" id="hit">Karte</button><button class="big act" id="stand">Halten</button></div><p class="hint">Blackjack ×2,5 · Sieg ×2 · Bank hält ab 17.</p></section>
+
+<section id="mines" class="hidden"><div class="row" id="mg" style="flex-wrap:wrap"></div>
+<button class="big go" id="mgo">Start (3 Minen)</button><button class="big act hidden" id="mout">Auszahlen</button></section>
+
+<p class="msg" id="msg">Wähle einen Einsatz und spiel los.</p>
+</div>
+
+<div class="foot"><span id="stats">Runden: 0</span><button class="link" id="reset">Zurücksetzen auf 1000</button></div>
+</main>
+
+<script>
+(function(){
+var START=1000,bal=START,peak=START,rounds=0,bet=50,busy=false,game="slots";
+var $=function(i){return document.getElementById(i)};
+try{var s=JSON.parse(localStorage.getItem("gs")||"null");if(s){bal=s.bal;peak=s.peak;rounds=s.rounds}}catch(e){}
+function save(){try{localStorage.setItem("gs",JSON.stringify({bal:bal,peak:peak,rounds:rounds}))}catch(e){}}
+function draw(){$("bal").textContent=bal;$("peak").textContent=peak;$("stats").textContent="Runden: "+rounds;
+var broke=bal<bet;document.querySelectorAll("#spin,.opt,.go").forEach(function(b){b.disabled=busy||broke});}
+function say(t,c){var m=$("msg");m.textContent=t;m.className="msg "+(c||"")}
+function settle(mult,label){
+var win=Math.round(bet*mult);rounds++;
+if(win>0){bal+=win;say(label+" Auszahlung "+win+".","win")}else{say(label+" Verloren: "+bet+".","lose")}
+if(bal>peak)peak=bal;
+if(bal<=0){bal=0;say("Pleite. Setz das Guthaben zurück, um neu zu starten.","lose")}
+busy=false;save();draw();}
+function take(){if(busy||bal<bet){return false}bal-=bet;busy=true;draw();return true}
+
+var chipVals=[10,50,100,500];
+chipVals.forEach(function(v){var b=document.createElement("button");b.className="chip";b.textContent=v;b.setAttribute("aria-pressed",v===bet);
+b.onclick=function(){bet=v;document.querySelectorAll(".chip").forEach(function(c){c.setAttribute("aria-pressed",c===b)});draw()};$("chips").appendChild(b)});
+
+document.querySelectorAll(".tab").forEach(function(t){t.onclick=function(){
+if(busy)return;game=t.dataset.g;
+document.querySelectorAll(".tab").forEach(function(x){x.setAttribute("aria-selected",x===t)});
+["slots","roul","coin","dice","hilo","crash","scr","bj","mines"].forEach(function(g){$(g).classList.toggle("hidden",g!==game)});say("Wähle einen Einsatz und spiel los.")}});
+
+// Slots
+var syms=[["🍒",30],["🍋",24],["🔔",18],["💎",8],["7️⃣",3]],pay={"🍒":5,"🍋":8,"🔔":15,"💎":30,"7️⃣":75},pool=[];
+syms.forEach(function(s){for(var i=0;i<s[1];i++)pool.push(s[0])});
+function rs(){return pool[Math.floor(Math.random()*pool.length)]}
+$("spin").onclick=function(){
+if(!take())return;say("…");
+var reels=document.querySelectorAll(".reel"),res=[rs(),rs(),rs()],stopped=0;
+reels.forEach(function(r,i){
+var iv=setInterval(function(){r.textContent=rs()},70);
+setTimeout(function(){clearInterval(iv);r.textContent=res[i];stopped++;
+if(stopped===3){
+var m=0,l="Knapp daneben.";
+if(res[0]===res[1]&&res[1]===res[2]){m=pay[res[0]];l="Dreier!"}
+else{var c=res.filter(function(x){return x==="🍒"}).length;if(c===2){m=2;l="Zwei Kirschen."}}
+settle(m,l)}},600+i*450)});};
+
+// Roulette
+var reds=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+function colorOf(n){return n===0?"green":reds.indexOf(n)>-1?"red":"black"}
+var hex={red:"#c8412f",black:"#161616",green:"#2f8f5b"},names={red:"Rot",black:"Schwarz",green:"Grün"};
+document.querySelectorAll("[data-b]").forEach(function(b){b.onclick=function(){
+if(!take())return;say("Die Kugel rollt …");
+var n=Math.floor(Math.random()*37),ball=$("ball"),iv=setInterval(function(){var x=Math.floor(Math.random()*37);ball.textContent=x;ball.style.background=hex[colorOf(x)]},80);
+setTimeout(function(){clearInterval(iv);var c=colorOf(n);ball.textContent=n;ball.style.background=hex[c];
+var want=b.dataset.b,m=c===want?(want==="green"?14:2):0;
+settle(m,names[c]+" "+n+".")},1800)}});
+
+// Münzwurf
+document.querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){
+if(!take())return;say("Die Münze fliegt …");
+var f=$("coinface"),iv=setInterval(function(){f.textContent=Math.random()<.5?"K":"Z"},90);
+setTimeout(function(){clearInterval(iv);var r=Math.random()<.5?"Kopf":"Zahl";f.textContent=r==="Kopf"?"K":"Z";
+settle(r===b.dataset.c?1.95:0,r+".")},1300)}});
+
+function rnd(n){return Math.floor(Math.random()*n)}
+var dice=["⚀","⚁","⚂","⚃","⚄","⚅"];
+document.querySelectorAll("[data-d]").forEach(function(b){b.onclick=function(){
+if(!take())return;say("Der Würfel rollt …");var f=$("dieface"),iv=setInterval(function(){f.textContent=dice[rnd(6)]},80);
+setTimeout(function(){clearInterval(iv);var n=rnd(6)+1;f.textContent=dice[n-1];var d=b.dataset.d,
+m=d==="lo"?(n<=3?1.95:0):d==="hi"?(n>=4?1.95:0):(n===6?5.5:0);settle(m,"Gewürfelt: "+n+".")},1200)}});
+var RK=["A","2","3","4","5","6","7","8","9","10","J","Q","K"],cur=rnd(13)+1;
+function hlDraw(){$("hc").textContent=RK[cur-1];var h=13-cur,l=cur-1;
+$("hh").textContent=h?"Höher ×"+(0.95*13/h).toFixed(2):"Höher –";$("hl").textContent=l?"Tiefer ×"+(0.95*13/l).toFixed(2):"Tiefer –";
+$("hh").dataset.m=h?0.95*13/h:0;$("hl").dataset.m=l?0.95*13/l:0}
+[["hh",1],["hl",-1]].forEach(function(p){$(p[0]).onclick=function(){var m=+this.dataset.m;if(!m||!take())return;
+var n=rnd(13)+1,ok=p[1]>0?n>cur:n<cur;cur=n;settle(ok?m:0,"Karte: "+RK[n-1]+".");hlDraw()}});
+hlDraw();
+var cmu=1,civ;
+function cfin(m,l){$("cout").classList.add("hidden");$("cgo").classList.remove("hidden");$("cm").textContent=cmu.toFixed(2)+"×";settle(m,l)}
+$("cgo").onclick=function(){if(!take())return;var crash=Math.max(1,Math.floor(97/(1-Math.random()))/100);cmu=1;
+$("cgo").classList.add("hidden");$("cout").classList.remove("hidden");say("Es steigt …");
+civ=setInterval(function(){cmu*=1.015;if(cmu>=crash){clearInterval(civ);cmu=crash;cfin(0,"Crash bei "+crash.toFixed(2)+"×.");return}$("cm").textContent=cmu.toFixed(2)+"×"},70)};
+$("cout").onclick=function(){clearInterval(civ);cfin(cmu,"Ausgezahlt bei "+cmu.toFixed(2)+"×.")};
+var SY=["🍀","⭐","🍎","🍋","🔔","💎","🍇","🌙","🎈","🦄"];
+function scr(a){$("sg").innerHTML=a.map(function(x){return '<div class="cell">'+x+'</div>'}).join("")}
+scr(["🎟️","🎟️","🎟️","🎟️","🎟️","🎟️"]);
+$("sgo").onclick=function(){if(!take())return;say("Rubbeln …");var res=[],i;for(i=0;i<6;i++)res.push(SY[rnd(10)]);
+var k=0,iv=setInterval(function(){k++;scr(res.map(function(x,j){return j<k?x:"▒"}));if(k===6){clearInterval(iv);
+var c={};res.forEach(function(x){c[x]=(c[x]||0)+1});var mx=Math.max.apply(null,Object.keys(c).map(function(x){return c[x]}));
+settle(mx>=4?25:mx===3?4:0,mx>=3?mx+" gleiche!":"Nichts.")}},350)};
+var P,D;
+function card(){return {r:rnd(13)+1,s:"♠♥♦♣"[rnd(4)]}}
+function val(h){var t=0,a=0;h.forEach(function(c){t+=c.r>10?10:c.r===1?(a++,11):c.r});while(t>21&&a){t-=10;a--}return t}
+function cd(c){return '<div class="pc"'+(c.s==="♥"||c.s==="♦"?' style="color:#c8412f"':'')+'>'+RK[c.r-1]+c.s+'</div>'}
+function show(hide){$("ph").innerHTML=P.map(cd).join("");$("dh").innerHTML=D.map(function(c,i){return hide&&i?'<div class="pc">?</div>':cd(c)}).join("")}
+function bjEnd(m,l){show(false);$("bact").classList.add("hidden");$("bgo").classList.remove("hidden");settle(m,l+" (Du "+val(P)+", Bank "+val(D)+").")}
+$("bgo").onclick=function(){if(!take())return;P=[card(),card()];D=[card(),card()];show(true);
+if(val(P)===21){var d=val(D)===21;bjEnd(d?1:2.5,d?"Beide Blackjack.":"Blackjack!");return}
+$("bgo").classList.add("hidden");$("bact").classList.remove("hidden");say("Karte oder halten?")};
+$("stand").onclick=function(){while(val(D)<17)D.push(card());var p=val(P),d=val(D);
+bjEnd(d>21||p>d?2:p===d?1:0,d>21?"Bank überkauft.":p>d?"Du gewinnst.":p===d?"Unentschieden.":"Bank gewinnt.")};
+$("hit").onclick=function(){P.push(card());show(true);if(val(P)>21)bjEnd(0,"Über 21.");else if(val(P)===21)$("stand").onclick()};
+var mset=[],mk=0,mm=0,mraw=1,mon=false;
+function mgrid(){$("mg").innerHTML="";for(var i=0;i<16;i++){var b=document.createElement("button");b.className="cell";b.textContent="?";b.dataset.i=i;b.onclick=pick;$("mg").appendChild(b)}}
+function mEnd(m,l){mon=false;$("mout").classList.add("hidden");$("mgo").classList.remove("hidden");
+document.querySelectorAll("#mg .cell").forEach(function(b){b.disabled=true;if(mset.indexOf(+b.dataset.i)>-1)b.textContent="💣"});settle(m,l)}
+function pick(){if(!mon||this.disabled)return;var i=+this.dataset.i;this.disabled=true;
+if(mset.indexOf(i)>-1){mEnd(0,"Boom.");return}
+this.textContent="💎";mk++;mraw*=(17-mk)/(14-mk);mm=0.97*mraw;$("mout").textContent="Auszahlen ×"+mm.toFixed(2);
+if(mk===13)mEnd(mm,"Alles gefunden!")}
+$("mgo").onclick=function(){if(!take())return;mset=[];while(mset.length<3){var x=rnd(16);if(mset.indexOf(x)<0)mset.push(x)}
+mk=0;mm=0;mraw=1;mon=true;mgrid();$("mgo").classList.add("hidden");$("mout").classList.remove("hidden");$("mout").textContent="Auszahlen";say("Finde 💎, meide 💣.")};
+$("mout").onclick=function(){if(mon&&mk)mEnd(mm,"Ausgezahlt bei ×"+mm.toFixed(2)+".")};
+mgrid();
+$("reset").onclick=function(){if(busy)return;bal=START;peak=START;rounds=0;save();say("Guthaben zurückgesetzt.");draw()};
+draw();
+})();
+</script>
+</body>
+</html>
